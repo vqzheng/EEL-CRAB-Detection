@@ -1,3 +1,5 @@
+
+
 #include <opencv2/highgui.hpp>
 #include <opencv2/opencv.hpp>
 #include <iostream>
@@ -27,8 +29,10 @@ int main(int argc, char** argv) {
 		inputVideo >> frame;
 		cvtColor(frame, edge, CV_BGR2GRAY);
 		cv::GaussianBlur(edge, edge, cv::Size(9, 9), 1.5, 1.5);
-		pMOG2->apply(edge, frame);
+		//pMOG2->apply(edge, frame);
 		cv::Canny(edge, edge, 0, 45, 3);
+		cv::resize(frame, frame, cv::Size(860, 512));
+		cv::resize(edge, edge, cv::Size(860, 512));
 		cv::imshow("source", frame);
 		cv::imshow("edge", edge);
 
