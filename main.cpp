@@ -23,7 +23,7 @@ int main(int argc, char** argv) {
 	cv::Ptr<cv::BackgroundSubtractor> pMOG2 = cv::createBackgroundSubtractorMOG2();
 
 	video_capture >> frame;
-	cv::resize(frame, frame, cv::Size(512, 512));
+	//cv::resize(frame, frame, cv::Size(512, 512));
 
 	cv::Mat hsv_frame;
 	cv::cvtColor(frame, hsv_frame, cv::COLOR_BGR2HSV);
@@ -34,7 +34,13 @@ int main(int argc, char** argv) {
 	for (;;){
 		video_capture >> frame;
 
-		cv::resize(frame, frame, cv::Size(512, 512));
+		//cv::resize(frame, frame, cv::Size(512, 512));
+
+		cv::Mat left_tank = frame(left_bounds).clone();
+		//cv::resize(left_tank, left_tank, cv::Size(512, 512));
+
+		cv::Mat right_tank = frame(right_bounds).clone();
+		//cv::resize(right_tank, right_tank, cv::Size(512, 512));
 
 		cvtColor(frame, edge, CV_BGR2GRAY);
 		cv::GaussianBlur(edge, edge, cv::Size(3, 3), 1.5, 1.5);
@@ -47,7 +53,10 @@ int main(int argc, char** argv) {
 		cv::rectangle(display_image, left_bounds, cv::Scalar(255, 0, 0), 4);
 		cv::rectangle(display_image, right_bounds, cv::Scalar(0, 0, 255), 4);
 
-		cv::imshow("output", display_image);
+		//cv::imshow("output", display_image);
+		cv::imshow("left tank", left_tank);
+		cv::imshow("right tank", right_tank);
+		
 
 		if (cv::waitKey(30) >= 0) break;
 	}
