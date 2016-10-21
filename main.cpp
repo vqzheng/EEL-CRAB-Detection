@@ -4,18 +4,22 @@
 
 //using namespace cv;
 
-int main(int argc, char** argv)
-{
-	const std::string source = "eel1.avi";
+int main(int argc, char** argv) {
+
+	if (argc != 2) {
+		std::cout << "Please pass a filename for the movie" << std::endl;
+		exit(1);
+	}
+
+	const std::string source = argv[1];
 	cv::VideoCapture inputVideo(source);
 	if (!inputVideo.isOpened()){
 		std::cout << "Could not open the input video: " << source << std::endl;
-		return -1;
+		exit(1);
 	}
 	cv::Mat edge;
 	cv::namedWindow("source", CV_WINDOW_AUTOSIZE);
 	cv::namedWindow("edge", CV_WINDOW_AUTOSIZE);
-	cv::namedWindow("test", CV_WINDOW_AUTOSIZE);
 	cv::Ptr<cv::BackgroundSubtractor> pMOG2 = cv::createBackgroundSubtractorMOG2();
 
 	for (;;){
