@@ -53,7 +53,7 @@ int main(int argc, char** argv) {
 		cv::rectangle(display_image, left_bounds, cv::Scalar(255, 0, 0), 4);
 		cv::rectangle(display_image, right_bounds, cv::Scalar(0, 0, 255), 4);
 
-		//cv::imshow("output", display_image);
+		cv::imshow("output", display_image);
 		cv::imshow("left tank", left_tank);
 		cv::imshow("right tank", right_tank);
 		
