@@ -3,7 +3,7 @@
 #include "components.h"
 #include "object_analysis.h"
 
-void detect_tank(const cv::Mat &hsv_image, cv::Rect2i &left_tank, cv::Rect2i &right_tank, const cv::Scalar &low_range, const cv::Scalar &high_range) {
+bool detect_tank(const cv::Mat &hsv_image, cv::Rect2i &left_tank, cv::Rect2i &right_tank, const cv::Scalar &low_range, const cv::Scalar &high_range) {
 	cv::Mat binary_image;
 	cv::inRange(hsv_image, low_range, high_range, binary_image);
 
@@ -12,34 +12,37 @@ void detect_tank(const cv::Mat &hsv_image, cv::Rect2i &left_tank, cv::Rect2i &ri
 	iterative_connected_components(binary_image, labeled_image, label_vector);
 
 	ushort labels = label_vector.size();
-
-	cv::Mat relabeled_image = cv::Mat::zeros(binary_image.size(), CV_16U);
-	condense_labels(label_vector, labeled_image, relabeled_image);
+	ushort max_label = label_vector.back();
+	condense_labels(label_vector, max_label, labeled_image, labeled_image);
 
 	std::vector<int> area_vector;
-	calcualte_areas(relabeled_image, labels, area_vector);
+	calcualte_areas(labeled_image, labels, area_vector);
 
-	std::vector<ushort> relabel_vector;
-	relabel_vector.resize(labels - 1);
-	std::iota(relabel_vector.begin(), relabel_vector.end(), 1);
+	std::vector<cv::Rect> bounds_vector;
+	calculate_bounds(labeled_image, labels, bounds_vector);
 
-	std::sort(relabel_vector.begin(), relabel_vector.end(), [&](ushort i, ushort j) {return area_vector[j] < area_vector[i]; });
+	std::vector<float> area_ratio_vector;
+	area_ratio_vector.resize(labels);
 
-	const ushort i = relabel_vector[0];
-	const ushort j = relabel_vector[1];
-
-	for (int r = 0; r < relabeled_image.rows; ++r) {
-		ushort *relabeled_image_ptr = relabeled_image.ptr<ushort>(r);
-
-		for (int c = 0; c < relabeled_image.cols; ++c) {
-			ushort &relabeled_image_pixel = relabeled_image_ptr[c];
-			relabeled_image_pixel = (relabeled_image_pixel == i) ? 1 : ((relabeled_image_pixel == j) ? 2 : 0);
-		}
+	for (ushort l = 0; l < labels; ++l) {
+		const float true_area = static_cast<float>(area_vector[l]);
+		const float bounds_area = static_cast<float>(bounds_vector[l].area());		
+		area_ratio_vector[l] = true_area * true_area / (1 + bounds_area);
 	}
 
-	std::vector<cv::Rect2i> bounds_vector;
-	calculate_bounds(relabeled_image, 3, bounds_vector);
+	if (labels < 3) {
+		return false;
+	}
+	else {
+		label_vector.resize(labels - 1);
+		std::iota(label_vector.begin(), label_vector.end(), 1);
+		std::sort(label_vector.begin(), label_vector.end(), [&](ushort i, ushort j) {return area_ratio_vector[j] < area_ratio_vector[i]; });
 
-	left_tank = (bounds_vector[1].x < bounds_vector[2].x) ? bounds_vector[1] : bounds_vector[2];
-	right_tank = (bounds_vector[1].x < bounds_vector[2].x) ? bounds_vector[2] : bounds_vector[1];
+		const ushort i = label_vector[0];
+		const ushort j = label_vector[1];
+
+		left_tank = (bounds_vector[i].x < bounds_vector[j].x) ? bounds_vector[i] : bounds_vector[j];
+		right_tank = (bounds_vector[i].x < bounds_vector[j].x) ? bounds_vector[j] : bounds_vector[i];
+		return true;
+	}
 }

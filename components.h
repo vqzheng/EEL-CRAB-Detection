@@ -42,10 +42,11 @@ void filter_labels(const cv::Mat &labeled_image, const ushort &labels, cv::Mat &
 Relabels labled_image so that all labels are sequencial. This function isn't neccisary but it might make it easier to debug.
 
 @param label_vector: A vector of all labels in image
+@param max_label: A ushort that defines that maxium label in an image
 @param labeled_image: An labeled image
 @out relabeled_image: A labeled image where all labels are sequencial
 */
-void condense_labels(const std::vector<ushort> &label_vector, const cv::Mat &labeled_image, cv::Mat &relabeled_image);
+void condense_labels(const std::vector<ushort> &label_vector, const ushort &max_label, const cv::Mat &labeled_image, cv::Mat &relabeled_image);
 
 /*Colorize Components
 Index based coloring of an image based off the lable at each pixel. Background pixels are ignored.

@@ -143,14 +143,14 @@ void filter_labels(const cv::Mat &labeled_image, const ushort &labels, cv::Mat &
 	}
 }
 
-void condense_labels(const std::vector<ushort> &label_vector, const cv::Mat &labeled_image, cv::Mat &relabeled_image) {
+void condense_labels(const std::vector<ushort> &label_vector, const ushort &max_label, const cv::Mat &labeled_image, cv::Mat &relabeled_image) {
 	std::vector<ushort> relabel_vector;
-	relabel_vector.resize(label_vector.back() + 1);
+	relabel_vector.resize(max_label + 1);
 
 	for (ushort l = 0; l < label_vector.size(); ++l) {
 		relabel_vector[label_vector[l]] = l;
 	}
-	
+
 	for (int r = 1; r < labeled_image.rows; ++r) {
 		const ushort *labeled_image_ptr = labeled_image.ptr<ushort>(r);
 		ushort *relabeled_image_ptr = relabeled_image.ptr<ushort>(r);
