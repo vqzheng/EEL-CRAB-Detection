@@ -4,5 +4,5 @@
 
 
 //input: 
-void find_skeleton(const cv::Mat &color, const cv::Mat& src, cv::Mat &res);
+void find_skeleton(const cv::Mat& src, cv::Mat &res);
 	
