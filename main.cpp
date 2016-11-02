@@ -11,6 +11,7 @@
 #include "components.h"
 #include "motion.h"
 #include "skeleton.h"
+#include "object_analysis.h"
 
 static void drawOptFlowMap(const cv::Mat& flow, cv::Mat& cflowmap, int step,
 	double, const cv::Scalar& color);
@@ -168,6 +169,11 @@ int main(int argc, char** argv) {
 	cv::Rect2i left_bounds, right_bounds;
 	detect_tank(hsv_image, left_bounds, right_bounds);
 
+	std::vector<cv::Point2i> last_centroids;
+
+	int iLastX = -1;
+	int iLastY = -1;
+
 	cv::Mat left_image,
 		left_flow,
 		cleft_flow,
@@ -181,6 +187,7 @@ int main(int argc, char** argv) {
 		uleft_previous_image, 
 		uleft_flow;
 	cv::cvtColor(source_image(left_bounds).clone(), uleft_previous_image, cv::COLOR_BGR2GRAY);
+	cv::Mat imgLines = cv::Mat::zeros(left_mag_mask.size(), CV_8UC3);
 
 	cv::Mat right_tank;
 
@@ -201,10 +208,14 @@ int main(int argc, char** argv) {
 		left_mag_mask = 0;
 		flow_mag_filter(left_flow, left_mag_mask, 0.5f);
 
-		const cv::Mat close_element = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(3, 3));
+		const cv::Mat close_element = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(5, 5));
 		const cv::Mat dilate_element = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(11, 11));
+		//cv::morphologyEx(left_mag_mask, left_mag_mask, cv::MORPH_DILATE, dilate_element);
 		cv::morphologyEx(left_mag_mask, left_mag_mask, cv::MORPH_CLOSE, close_element);
-		cv::morphologyEx(left_mag_mask, left_mag_mask, cv::MORPH_DILATE, dilate_element);
+		//cv::morphologyEx(left_mag_mask, left_mag_mask, cv::MORPH_DILATE, dilate_element);
+		cv::morphologyEx(left_mag_mask, left_mag_mask, cv::MORPH_OPEN, close_element);
+		cv::morphologyEx(left_mag_mask, left_mag_mask, cv::MORPH_CLOSE, close_element);
+		//cv::morphologyEx(left_mag_mask, left_mag_mask, cv::MORPH_DILATE, dilate_element);
 
 		cleft_label = left_image.clone();
 		int labels = cv::connectedComponents(left_mag_mask, left_label, 8, CV_16U);
@@ -227,23 +238,53 @@ int main(int argc, char** argv) {
 			stddev += u * u;
 		} stddev = sqrt(stddev / labels);
 
+		cv::bitwise_and(left_cc_label, left_mag_mask, left_cc_label);
 		type_mask = 0;
 		for (int l = 1; l < labels; ++l) {
 			left_cc_label = 0;
 			left_cc_label = (left_label == l);
 			cv::Moments m = cv::moments(left_cc_label, false);
 			const float z = (m.m00 - mean) / stddev;
-			if (z > 2.0f) {
+			if (z > 1.0f && m.m00 > 100000 ) {
 				type_mask += left_cc_label;
+				//std::cout << m.m00 << std::endl;
 			}
 		}
 
 		cv::bitwise_and(type_mask, left_mag_mask, left_mag_mask);
 		find_skeleton(left_mag_mask, left_mag_mask);
 		cv::morphologyEx(left_mag_mask, left_mag_mask, cv::MORPH_DILATE, dilate_element);
-
+		const cv::Mat dilate_element2 = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(5, 5));
+		const cv::Mat open_element = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(5, 5));
+		cv::morphologyEx(left_mag_mask, left_mag_mask, cv::MORPH_DILATE, dilate_element);
+		cv::morphologyEx(left_mag_mask, left_mag_mask, cv::MORPH_OPEN, open_element);
+		cv::morphologyEx(left_mag_mask, left_mag_mask, cv::MORPH_ERODE, dilate_element);
+		//cv::morphologyEx(left_mag_mask, left_mag_mask, cv::MORPH_ERODE, dilate_element);
+		//cv::morphologyEx(left_mag_mask, left_mag_mask, cv::MORPH_DILATE, dilate_element);
+		std::vector<cv::Point2i> centroid_vector;
 		labels = cv::connectedComponents(left_mag_mask, left_label, 8, CV_16U);
+		calculate_centroids(left_label, labels, centroid_vector);
+
 		colorize_components(left_label, color_vector, cleft_label);
+
+		//cv::Mat imgLines = cv::Mat::zeros(left_mag_mask.size(), CV_8UC3);
+		std::cout << centroid_vector.size() << std::endl;
+		for (int i = 1; i < centroid_vector.size();i++){
+			//cv::circle(imgLines, centroid_vector[i], 5 , cv::Scalar(0, 0, 255));
+			int n = 0;
+			double current_min = 100000000000;
+			for (int j = 1; j < last_centroids.size(); j++){
+				double distance;
+				distance = cv::norm(centroid_vector[i] - last_centroids[j]);
+				if (distance < current_min && distance < 60){
+					n = j;
+				}
+				if (n!=0)
+				cv::line(imgLines, last_centroids[n], centroid_vector[i], cv::Scalar(0, 0, 255), 1, 8, 0);
+
+			}
+		}
+		last_centroids = centroid_vector;
 
 		left_tracked = 0;
 		left_image.copyTo(left_tracked, left_mag_mask);
@@ -252,7 +293,7 @@ int main(int argc, char** argv) {
 		drawOptFlowMap(left_flow, cleft_flow, 16, 1.5, cv::Scalar(0, 255, 0));
 
 		//CRABS
-		cv::Mat basic_right, crabs_threshold;
+		/*cv::Mat basic_right, crabs_threshold;
 		cv::cvtColor(right_tank, basic_right, CV_BGR2HSV);
 		//cv::imshow("crabs hsv", basic_right);
 		cv::inRange(basic_right, cv::Scalar(0, 0, 224), cv::Scalar(179, 255, 255), crabs_threshold);
@@ -274,8 +315,43 @@ int main(int argc, char** argv) {
 				}
 			}
 			cv::imshow("contour crabs", right_tank);
+		}*/
+
+
+
+
+
+		cv::Moments oMoments = moments(left_mag_mask);
+
+		double dM01 = oMoments.m01;
+		double dM10 = oMoments.m10;
+		double dArea = oMoments.m00;
+		
+		
+		
+
+		// if the area <= 10000, I consider that the there are no object in the image and it's because of the noise, the area is not zero 
+		if (dArea > 0)
+		{
+			//calculate the position of the ball
+			int posX = dM10 / dArea;
+			int posY = dM01 / dArea;
+
+
+			if (iLastX >= 0 && iLastY >= 0 && posX >= 0 && posY >= 0)
+			{
+				//Draw a red line from the previous point to the current point
+				//std::cout << posY << std::endl;
+				//cv::circle(imgLines, cv::Point(posX, posY), 10, cv::Scalar(0, 0, 255));
+				//cv::line(imgLines, cv::Point(posX, posY), cv::Point(iLastX, iLastY), cv::Scalar(0, 0, 255), 2);
+			}
+			//std::cout << posY << std::endl;
+
+			iLastX = posX;
+			iLastY = posY;
 		}
 
+		cv::imshow("tracking", imgLines);
 		cv::imshow("uleft_image", uleft_image);
 		cv::imshow("cleft_flow", cleft_flow);
 		cv::imshow("left_tracked", left_tracked);
